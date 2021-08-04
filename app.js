@@ -4,8 +4,12 @@ const express = require('express')
 
 const mongoose = require('mongoose')
 const multer = require('multer')
+const { graphqlHTTP } = require('express-graphql')
 
 const app = express()
+
+const graphqlSchema = require('./graphql/schema')
+const graphqlResolver = require('./graphql/resolvers')
 
 const MONGO_URL = 'mongodb+srv://rafliandrean_:mancity113@cluster0.g1eir.mongodb.net/message?retryWrites=true'
 
@@ -43,6 +47,12 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     next()
 })
+
+app.use('/graphql', graphqlHTTP({
+    schema: graphqlSchema,
+    rootValue: graphqlResolver,
+    
+}))
 
 //Global handling error
 app.use((error, req, res, next) => {
