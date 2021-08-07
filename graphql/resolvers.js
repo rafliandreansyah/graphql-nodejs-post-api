@@ -1,9 +1,111 @@
+const bcrypt = require('bcryptjs')
+const validator = require('validator')
+const jwt = require('jsonwebtoken')
+
+const User = require('../model/user')
+const Post = require('../model/post')
+
 module.exports = {
-    hello: () => {
-        return {
-            value: "Hello GRAPHQL",
-            room: 800
+    createUser: async({ userInput }, req) => {
+
+        const errors = []
+
+        if (!validator.isEmail(userInput.email)) {
+            errors.push({message: 'Email not valid!'})
         }
-        
+
+        if (validator.isEmpty(userInput.password) || !validator.isLength(userInput.password, { min: 5 })) {
+            errors.push({message: 'Password to short!'})
+        }
+
+        if (validator.isEmpty(userInput.name)) {
+            errors.push({message: 'Name cannot be empty'})
+        }
+
+        if (errors.length > 0) {
+            const error = new Error('invalid input')
+            error.data = errors
+            error.code = 422
+            throw error
+        }
+
+        const checkUserExists = await User.findOne({ email: userInput.email })
+
+        if (checkUserExists){
+            const error = new Error('User exists already!')
+            error.code = 442
+            throw error
+        }
+
+        const passwordHash = await bcrypt.hash(userInput.password, 12)
+
+        const user = new User({
+            email: userInput.email,
+            password: passwordHash,
+            name: userInput.name
+        })
+
+        const createUser = await user.save()
+
+        return {
+            ...createUser._doc, _id: createUser._id.toString()
+        }
+
+    },
+    login: async({email, password}, req) => {
+        const user = await User.findOne({email: email})
+        if(!user) {
+            const error = new Error('email doesnt exists!')
+            error.code = 404
+            throw error
+        }
+
+        const isEqual = bcrypt.compare(password, user.password)
+        if(!isEqual) {
+            const error = new Error('wrong password. please try again')
+            error.code = 401
+            throw error
+        }
+
+        const token = jwt.sign({
+            userId: user._id.toString(),
+            email: user.email
+        }, 'supersecret', { expiresIn: '1h' })
+
+        return {
+            token: token,
+            userId: user._id.toString()
+        }
+
+    },
+    createPost: async({postInput}, req) => {
+
+        const errors = []
+        if (validator.isEmpty(postInput.title) || !validator.isLength(postInput.title, { min: 5 })) {
+            errors.push({message: 'Title is invalid'})
+        }
+
+        if (validator.isEmpty(postInput.content) || !validator.isLength(postInput.content, { min: 5 })) {
+            errors.push({message: 'Content is invalid'})
+        }
+
+        if (errors.length > 0) {
+            const error = new Error('Invalid Input')
+            error.data = errors
+            error.code = 422
+            throw error
+        }
+
+        const post = new Post({
+            title: postInput.title,
+            imageUrl: postInput.imageUrl,
+            content: postInput.content
+        })
+
+        const postCreated = await post.save()
+
+        return {
+            ...postCreated._doc, _id: postCreated._id.toString(), createdAt: postCreated.createdAt.toISOString(), updatedAt: postCreated.updatedAt.toISOString()
+        }
     }
 }
