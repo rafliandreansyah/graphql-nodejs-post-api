@@ -13,6 +13,8 @@ const graphqlResolver = require('./graphql/resolvers')
 
 const auth = require('./middleware/auth')
 
+const fileHelper = require('./utils/file-helper')
+
 const MONGO_URL = 'mongodb+srv://rafliandrean_:mancity113@cluster0.g1eir.mongodb.net/message?retryWrites=true'
 
 const fileImageStorage = multer.diskStorage({
@@ -54,6 +56,25 @@ app.use((req, res, next) => {
 })
 
 app.use(auth)
+
+app.put('/post-image', (req, res, next) => {
+    if(!req.isAuth){
+        const error = new Error('No authenticated')
+        error.statusCode = 401
+        throw error
+    }
+
+    if (!req.file) {
+        return res.status(201).json({message: 'No attached file'})
+    }
+
+    if (req.body.oldPath) {
+        fileHelper.deleteFile(req.body.oldPath)
+    }
+
+    const imagePath = req.file.path
+    return res.status(201).json({message: 'File uploaded', imagePath: imagePath})
+})
 
 app.use('/graphql', graphqlHTTP({
     schema: graphqlSchema,
