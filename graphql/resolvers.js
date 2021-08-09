@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken')
 const User = require('../model/user')
 const Post = require('../model/post')
 
+const fileHelper = require('../utils/file-helper')
+
 module.exports = {
     createUser: async({ userInput }, req) => {
 
@@ -170,5 +172,86 @@ module.exports = {
             createdAt: post.createdAt.toISOString(),
             updatedAt: post.updatedAt.toISOString()
         }
+    },
+    updatePost: async({postId, updateInput}, req) => {
+
+        if (!req.isAuth){
+            const error = new Error('No authenticated')
+            error.code = 401
+            throw error
+        }
+
+        const post = await Post.findById(postId).populate('creator')
+
+        const errors = []
+        if (validator.isEmpty(updateInput.title) || !validator.isLength(updateInput.title, { min: 5 })) {
+            errors.push({message: 'Title is invalid'})
+        }
+
+        if (validator.isEmpty(updateInput.content) || !validator.isLength(updateInput.content, { min: 5 })) {
+            errors.push({message: 'Content is invalid'})
+        }
+
+        if (errors.length > 0) {
+            const error = new Error('Invalid Input')
+            error.data = errors
+            error.code = 422
+            throw error
+        }
+
+        if (!post) {
+            const error = new Error('Post not found')
+            error.code = 404
+            throw error
+        }
+
+        if (post.creator._id.toString() !== req.userId) {
+            const error = new Error('Not authorized')
+            error.code = 403
+            throw error
+        }
+        
+        post.title = updateInput.title
+        post.content = updateInput.content
+        if (updateInput.imageUrl !== 'undefined') {
+            post.imageUrl = updateInput.imageUrl
+        }
+
+        const updatedPost = await post.save()
+        
+        return {
+            ...updatedPost._doc, _id: updatedPost._id.toString(), createdAt: updatedPost.createdAt.toISOString(), updatedAt: updatedPost.updatedAt.toISOString()
+        }
+
+    },
+    deletePost: async({postId}, req) => {
+        if (!req.isAuth){
+            const error = new Error('No authenticated')
+            error.code = 401
+            throw error
+        }
+
+        const post = await Post.findById(postId)
+
+        if (!post) {
+            const error = new Error('Post not found')
+            error.code = 404
+            throw error
+        }
+
+        if (post.creator.toString() !== req.userId) {
+            const error = new Error('Not authorized')
+            error.code = 403
+            throw error
+        }
+
+        fileHelper.deleteFile(post.imageUrl)
+        await Post.findByIdAndRemove(postId)
+
+        const user = await User.findById(req.userId)
+        user.posts.pull(postId)
+        await user.save()
+
+        return true
     }
 }
