@@ -120,15 +120,20 @@ module.exports = {
             ...postCreated._doc, _id: postCreated._id.toString(), createdAt: postCreated.createdAt.toISOString(), updatedAt: postCreated.updatedAt.toISOString()
         }
     },
-    posts: async(args, req) => {
+    posts: async({ page }, req) => {
 
         if (!req.isAuth) {
             const error = new Error('Not Authenticated')
             error.code = 401
             throw error
         }
+
+        if (!page) {
+            page = 1
+        }
+        perPage = 2
         const totalPost = await Post.find().countDocuments()
-        const posts = await Post.find().sort({ createdAt: -1 }).populate('creator')
+        const posts = await Post.find().sort({ createdAt: -1 }).skip((page - 1) * perPage).limit(perPage).populate('creator')
         console.log(posts)
 
         return {
