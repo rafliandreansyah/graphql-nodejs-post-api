@@ -3,9 +3,8 @@ const jwt = require('jsonwebtoken')
 module.exports = (req, res, next) => {
     const authHeader = req.get('Authorization')
     if (!authHeader) {
-        const error = new Error('No authenticated')
-        error.statusCode = 401
-        throw error
+        req.isAuth = false
+        return next()
     }
 
     const token = authHeader.split(' ')[1]
@@ -14,16 +13,16 @@ module.exports = (req, res, next) => {
     try{
         decodeToken = jwt.verify(token, 'supersecretkey')
     }catch(err){
-        err.statusCode = 401
-        throw err
+        req.isAuth = false
+        return next()
     }
      
     if (!decodeToken){
-        const error = new Error('No authenticated')
-        error.statusCode = 401
-        throw error
+        req.isAuth = false
+        return next()
     }
 
+    req.isAuth = true
     req.userId = decodeToken.userId
     next()
 

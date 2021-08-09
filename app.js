@@ -11,6 +11,8 @@ const app = express()
 const graphqlSchema = require('./graphql/schema')
 const graphqlResolver = require('./graphql/resolvers')
 
+const auth = require('./middleware/auth')
+
 const MONGO_URL = 'mongodb+srv://rafliandrean_:mancity113@cluster0.g1eir.mongodb.net/message?retryWrites=true'
 
 const fileImageStorage = multer.diskStorage({
@@ -50,6 +52,8 @@ app.use((req, res, next) => {
     }
     next()
 })
+
+app.use(auth)
 
 app.use('/graphql', graphqlHTTP({
     schema: graphqlSchema,

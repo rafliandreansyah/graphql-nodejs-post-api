@@ -70,7 +70,7 @@ module.exports = {
         const token = jwt.sign({
             userId: user._id.toString(),
             email: user.email
-        }, 'supersecret', { expiresIn: '1h' })
+        }, 'supersecretkey', { expiresIn: '1h' })
 
         return {
             token: token,
@@ -79,6 +79,12 @@ module.exports = {
 
     },
     createPost: async({postInput}, req) => {
+
+        if (!req.isAuth){ 
+            const error = new Error('Not Authenticated')
+            error.code = 401
+            throw error
+        }
 
         const errors = []
         if (validator.isEmpty(postInput.title) || !validator.isLength(postInput.title, { min: 5 })) {
@@ -96,16 +102,42 @@ module.exports = {
             throw error
         }
 
+        const user = await User.findById(req.userId)
+
         const post = new Post({
             title: postInput.title,
             imageUrl: postInput.imageUrl,
-            content: postInput.content
+            content: postInput.content,
+            creator: user
         })
 
         const postCreated = await post.save()
 
+        user.posts.push(postCreated)
+        await user.save()
+
         return {
             ...postCreated._doc, _id: postCreated._id.toString(), createdAt: postCreated.createdAt.toISOString(), updatedAt: postCreated.updatedAt.toISOString()
+        }
+    },
+    posts: async(args, req) => {
+
+        if (!req.isAuth) {
+            const error = new Error('Not Authenticated')
+            error.code = 401
+            throw error
+        }
+        const totalPost = await Post.find().countDocuments()
+        const posts = await Post.find().sort({ createdAt: -1 }).populate('creator')
+        console.log(posts)
+
+        return {
+            posts: posts.map(p => {
+                return{
+                    ...p._doc, _id: p._id.toString(), createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString()
+                }
+            }),
+            totalPost: totalPost
         }
     }
 }
